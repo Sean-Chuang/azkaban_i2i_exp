@@ -1,0 +1,21 @@
+#!/bin/bash
+
+source ~/.bashrc
+
+>&2 echo $0 $@
+
+export JAVA_HOME=/usr/java/latest
+
+basedir=$(cd $(dirname "$0")/.. && pwd)
+prestosqlbase="${basedir}/presto"
+
+sql=$prestosqlbase/$1.sql
+shift
+params=$*
+
+if [ ! -f $sql ]; then
+  echo "specified sql does not exist : $sql"
+  exit 1
+fi
+
+python2.7 $basedir/bin/exec_presto.py -f $sql -e ad $params

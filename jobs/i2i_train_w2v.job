@@ -1,0 +1,2 @@
+type=command
+command=bash -c "bash ../bin/exec_presto_py prepare_i2i_train_data -e sn -k dt=`date -d '${azkaban.flow.start.timestamp} - 1 day' '+%Y-%m-%d'`"

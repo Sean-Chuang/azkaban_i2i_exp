@@ -1,0 +1,4 @@
+type=command
+command=bash -c "bash ../scripts/multi_trying_kick_off_instance.sh -t Team=Ads-Ranking -t Slack=ad-dmp-azkaban@ad-dmp-members c4.8xlarge,c3.8xlarge train_i2i_w2v i2i_w2v_train"
+dependencies=update_lookalike_common
+
