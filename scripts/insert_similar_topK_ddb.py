@@ -78,9 +78,13 @@ def __query_presto(query, limit=None):
 
 def update_table_WCU(table, write_capacity):
     try:
+        table_info = dynamodb.Table(table).provisioned_throughput
+        log.info(f"table_info: {table_info}")
+        read_capacity = table_info['ReadCapacityUnits']
         res = ddb_client.update_table(
             TableName=table, 
             ProvisionedThroughput={
+                'ReadCapacityUnits': read_capacity,
                 'WriteCapacityUnits': write_capacity
             }
         )
@@ -237,4 +241,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
     threading.Thread(target=insert_ddb, args=(args.ddb_table, args.label), daemon=True).start()
     main(args.catalog_table, args.model, args.topK, args.backup_file, args.ddb_table)
-
