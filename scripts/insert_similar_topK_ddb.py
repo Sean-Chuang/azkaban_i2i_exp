@@ -55,6 +55,7 @@ def insert_ddb(table_name, company_label):
         while True:
             item = q.get()
             try:
+                item['label'] = company_label
                 batch.put_item(Item=item)
                 update_count += 1
             except Exception as err:
@@ -159,7 +160,7 @@ def fetch_topK_similar(items_vec_file, ann_model, topK, item_idx_map, items_grou
                 items_group[content_id].remove(item_id)
                 item_emb = list(map(float, tmp[1:]))
                 if content_id not in update_data:
-                    update_data[content_id] = {'item_id': content_id, 'label': company_label}
+                    update_data[content_id] = {'item_id': content_id}
 
                 res_dict = OrderedDict()
                 topK_item, topK_dist = ann_model.get_nns_by_vector(item_emb, topK, include_distances=True)
