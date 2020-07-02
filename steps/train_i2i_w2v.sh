@@ -39,7 +39,7 @@ du -khs ${model}
 
 # build ANN / find similar topK items / insert DDB
 catalog_table="hive.maeda.rakuten_rpp_datafeed"
-topK=10
+topK=20
 ddb_table="dev_dynamic_ads_similar_items"
 label="rakuten_shopping"
 backup_file="/mnt1/train/similar_items_res.csv"

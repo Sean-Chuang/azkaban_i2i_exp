@@ -76,12 +76,11 @@ def __query_presto(query, limit=None):
     return df
 
 
-def __update_table_WCU(table, read_capacity, write_capacity):
+def update_table_WCU(table, write_capacity):
     try:
         res = ddb_client.update_table(
             TableName=table, 
             ProvisionedThroughput={
-                'ReadCapacityUnits': read_capacity,
                 'WriteCapacityUnits': write_capacity
             }
         )
@@ -215,13 +214,15 @@ def check_queue_finish():
         time.sleep(60)
 
 
-def main(catalog_table, items_vec_file, topK, backup_file):
+def main(catalog_table, items_vec_file, topK, backup_file, ddb_table):
     b_time = time.time()
     valid_items_set = fetch_category_items(catalog_table)
     ann_model, item_idx_map, item_group = build_ann(items_vec_file, valid_items_set)
+    update_table_WCU(ddb_table, 1000)
     topK_similar_result = fetch_topK_similar(items_vec_file, ann_model, topK, item_idx_map, item_group)
     backup(backup_file, topK_similar_result)
     check_queue_finish()
+    update_table_WCU(ddb_table, 2)
     log.info(f"[Time|main] Cost : {time.time() - b_time}")
 
 
@@ -235,5 +236,5 @@ if __name__ == '__main__':
     parser.add_argument("backup_file", type=str, help="backup file name")
     args = parser.parse_args()
     threading.Thread(target=insert_ddb, args=(args.ddb_table, args.label), daemon=True).start()
-    main(args.catalog_table, args.model, args.topK, args.backup_file)
+    main(args.catalog_table, args.model, args.topK, args.backup_file, args.ddb_table)
 
