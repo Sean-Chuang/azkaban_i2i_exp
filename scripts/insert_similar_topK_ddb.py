@@ -96,8 +96,8 @@ def fetch_category_items(catalog_table):
     b_time = time.time()
     log.info("[fetch_category_items] Start query table...")
     query = f"""
-        select 
-            regexp_replace(id,'^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$','$2:$3') as content_id
+        select
+            replace(regexp_replace(id,'^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$','$2:$3'), ' ') as content_id
         from {catalog_table} 
     """
     data = __query_presto(query)
