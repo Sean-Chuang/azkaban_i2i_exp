@@ -53,5 +53,5 @@ python3 azkaban_i2i_exp/scripts/insert_similar_topK_ddb.py \
 
 
 # copy vectors to feature table
-s3url="s3://smartad-dmp/warehouse/ml/ad_deeplal_features/type=${label}/dt=${dt}/"
+s3url="s3://smartad-dmp/warehouse/user/seanchuang/tmp_i2i_items_similar_backup/dt=${dt}/"
 aws s3 cp ${backup_file} ${s3url}
