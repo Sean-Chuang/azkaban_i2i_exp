@@ -155,39 +155,43 @@ def fetch_topK_similar(items_vec_file, ann_model, topK, item_idx_map, items_grou
         for idx, line in enumerate(in_f):
             tmp = line.split()
             item_id = tmp[0]
-            action, content_id = item_id.split(':', 1)
-            if content_id in items_group:
-                items_group[content_id].remove(item_id)
-                item_emb = list(map(float, tmp[1:]))
-                if content_id not in update_data:
-                    update_data[content_id] = {'item_id': content_id}
+            try:
+                action, content_id = item_id.split(':', 1)
+                if content_id in items_group:
+                    items_group[content_id].remove(item_id)
+                    item_emb = list(map(float, tmp[1:]))
+                    if content_id not in update_data:
+                        update_data[content_id] = {'item_id': content_id}
 
-                res_dict = OrderedDict()
-                topK_item, topK_dist = ann_model.get_nns_by_vector(item_emb, topK, include_distances=True)
-                for item_idx, dist in zip(topK_item, topK_dist):
-                    try:
-                        item = item_idx_map[item_idx].split(':', 1)[1].strip()
-                        if item not in res_dict:
-                            res_dict[item] = Decimal(f"{1-dist:.4f}")
-                            # Todo: maybe do score normalize here
-                    except Exception as err:
-                        log.error(err)
-                        log.warning(f"Couldn't find item name : {item_idx_map[item_idx]}")
-                    if len(res_dict) == topK:
-                        break
+                    res_dict = OrderedDict()
+                    topK_item, topK_dist = ann_model.get_nns_by_vector(item_emb, topK, include_distances=True)
+                    for item_idx, dist in zip(topK_item, topK_dist):
+                        try:
+                            item = item_idx_map[item_idx].split(':', 1)[1].strip()
+                            if item not in res_dict:
+                                res_dict[item] = Decimal(f"{1-dist:.4f}")
+                                # Todo: maybe do score normalize here
+                        except Exception as err:
+                            log.error(err)
+                            log.warning(f"Couldn't find item name : {item_idx_map[item_idx]}")
+                        if len(res_dict) == topK:
+                            break
 
-                if action == Action.View.value:
-                    update_data[content_id]['view_similar'] = res_dict
-                elif action == Action.AddToCart.value:
-                    update_data[content_id]['add_cart_similar'] = res_dict
-                elif action == Action.Purchase.value:
-                    update_data[content_id]['purchase_similar'] = res_dict
-                else:
-                    log.warning(f"{e} -> {action} not a valided action...")
-                    continue
+                    if action == Action.View.value:
+                        update_data[content_id]['view_similar'] = res_dict
+                    elif action == Action.AddToCart.value:
+                        update_data[content_id]['add_cart_similar'] = res_dict
+                    elif action == Action.Purchase.value:
+                        update_data[content_id]['purchase_similar'] = res_dict
+                    else:
+                        log.warning(f"{e} -> {action} not a valided action...")
+                        continue
 
-                if len(items_group[content_id]) == 0:
-                    q.put(update_data[content_id])
+                    if len(items_group[content_id]) == 0:
+                        q.put(update_data[content_id])
+            except Exception as err:
+                log.error(err)
+                log.warning(f"{item_id} not a valided behaviors...")
 
     log.info(f"[End] Check items group result : {sum([len(items_group[g]) for g in items_group])}")
     log.info(f"[Time|fetch_topK_similar] Cost : {time.time() - b_time}")
