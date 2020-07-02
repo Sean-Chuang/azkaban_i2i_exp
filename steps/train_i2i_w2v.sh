@@ -1,20 +1,14 @@
 #!/bin/bash
-# use tmux to check status easily
-[[ $TERM != "screen" ]] && exec tmux
-
 set -eu
 basedir=$(cd $(dirname "$0")/.. && pwd)
 
 cd ~
 if [ ! -d smart-ad-dmp ]; then
     git clone --recursive git@github.com:smartnews/smart-ad-dmp.git
-    # Todo
-    git clone --recursive git@github.com:smartnews/smart-ad-dmp.git
     cd
 fi
 
 # setup env
-yum install -y tmux
 curl https://bootstrap.pypa.io/get-pip.py | python3.6 - --user
 pip3 install tqdm \
 			numpy \
@@ -31,7 +25,7 @@ mkdir -p /mnt1/train
 dt="$(date -d '1 day ago' '+%Y-%m-%d')"
 echo ${dt}
 
-cd ~/smart-ad-dmp/azkaban-flow/audience
+cd ~/smart-ad-dmp/azkaban-flow/datafeed
 s3_prefix="smartad-dmp/warehouse/user/seanchuang/i2i_offline_w2v_train_data/dt=${dt}"
 bash bin/s3_sync_mnt "/mnt1/train" ${s3_prefix}
 data="/mnt1/train/${s3_prefix}/merged.data"
