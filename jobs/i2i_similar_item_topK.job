@@ -1,5 +1,5 @@
 type=command
 command=bash -c "bash ../bin/exec_presto_py prepare_i2i_train_data -e sn -k dt=`date -d '${azkaban.flow.start.timestamp} - 1 day' '+%Y-%m-%d'`"
-command.1=bash -c "bash ../scripts/multi_trying_kick_off_instance.sh -t Team=Ads-Ranking -t Slack=ad-dmp-azkaban@ad-dmp-members c5.9xlarge,c4.8xlarge train_i2i_w2v i2i_find_similar_items"
+command.1=bash -c "bash ../scripts/multi_trying_kick_off_instance.sh -t Team=Ads-Ranking -t Slack=ad-dmp-azkaban@ad-dmp-members c5.9xlarge,c4.8xlarge train_i2i_w2v i2i_similar_items_task"
 
 
