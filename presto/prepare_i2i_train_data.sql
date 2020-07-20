@@ -13,7 +13,7 @@ insert into z_seanchuang.i2i_offline_w2v_train_data
 with data as ( 
     select 
         ad_id,
-        regexp_replace(content_id, '^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$', '$2:$3') as content_id,
+        replace(regexp_replace(content_id, '^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$', '$2:$3'), ' ') as content_id,
         replace(behavior_types, 'adjust:callback:','') as behavior_types,
         ts,
         '${dt}' as dt
@@ -24,7 +24,7 @@ with data as (
             j(ROW, '$._m') as behavior_types,
             cast(j(ROW, '$.timestamp') as bigint) as ts
         from hive_ad.default.ad_tracker_plain atp
-        where atp.dt > date_format(date_add('day', -14, date('${dt}')),'%Y-%m-%d')
+        where atp.dt > date_format(date_add('day', -10, date('${dt}')),'%Y-%m-%d')
             and atp.dt <= '${dt}'
             and j(ROW, '$._d.StoreId') in ('jp.co.rakuten.android', '419267350')
     )

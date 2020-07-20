@@ -55,6 +55,7 @@ def insert_ddb(table_name, company_label):
         while True:
             item = q.get()
             try:
+                item['label'] = company_label
                 batch.put_item(Item=item)
                 update_count += 1
             except Exception as err:
@@ -75,8 +76,11 @@ def __query_presto(query, limit=None):
     return df
 
 
-def __update_table_WCU(table, read_capacity, write_capacity):
+def update_table_WCU(table, write_capacity):
     try:
+        table_info = dynamodb.Table(table).provisioned_throughput
+        log.info(f"table_info: {table_info}")
+        read_capacity = table_info['ReadCapacityUnits']
         res = ddb_client.update_table(
             TableName=table, 
             ProvisionedThroughput={
@@ -95,8 +99,8 @@ def fetch_category_items(catalog_table):
     b_time = time.time()
     log.info("[fetch_category_items] Start query table...")
     query = f"""
-        select 
-            regexp_replace(id,'^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$','$2:$3') as content_id
+        select
+            replace(regexp_replace(id,'^([0-9]+):([0-9a-zA-Z\-_]+):([0-9]+)$','$2:$3'), ' ') as content_id
         from {catalog_table} 
     """
     data = __query_presto(query)
@@ -154,39 +158,43 @@ def fetch_topK_similar(items_vec_file, ann_model, topK, item_idx_map, items_grou
         for idx, line in enumerate(in_f):
             tmp = line.split()
             item_id = tmp[0]
-            action, content_id = item_id.split(':', 1)
-            if content_id in items_group:
-                items_group[content_id].remove(item_id)
-                item_emb = list(map(float, tmp[1:]))
-                if content_id not in update_data:
-                    update_data[content_id] = {'item_id': content_id, 'label': company_label}
+            try:
+                action, content_id = item_id.split(':', 1)
+                if content_id in items_group:
+                    items_group[content_id].remove(item_id)
+                    item_emb = list(map(float, tmp[1:]))
+                    if content_id not in update_data:
+                        update_data[content_id] = {'item_id': content_id}
 
-                res_dict = OrderedDict()
-                topK_item, topK_dist = ann_model.get_nns_by_vector(item_emb, topK, include_distances=True)
-                for item_idx, dist in zip(topK_item, topK_dist):
-                    try:
-                        item = item_idx_map[item_idx].split(':', 1)[1].strip()
-                        if item not in res_dict:
-                            res_dict[item] = Decimal(f"{1-dist:.4f}")
-                            # Todo: maybe do score normalize here
-                    except Exception as err:
-                        log.error(err)
-                        log.warning(f"Couldn't find item name : {item_idx_map[item_idx]}")
-                    if len(res_dict) == topK:
-                        break
+                    res_dict = OrderedDict()
+                    topK_item, topK_dist = ann_model.get_nns_by_vector(item_emb, topK, include_distances=True)
+                    for item_idx, dist in zip(topK_item, topK_dist):
+                        try:
+                            item = item_idx_map[item_idx].split(':', 1)[1].strip()
+                            if item not in res_dict:
+                                res_dict[item] = Decimal(f"{1-dist:.4f}")
+                                # Todo: maybe do score normalize here
+                        except Exception as err:
+                            log.error(err)
+                            log.warning(f"Couldn't find item name : {item_idx_map[item_idx]}")
+                        if len(res_dict) == topK:
+                            break
 
-                if action == Action.View.value:
-                    update_data[content_id]['view_similar'] = res_dict
-                elif action == Action.AddToCart.value:
-                    update_data[content_id]['add_cart_similar'] = res_dict
-                elif action == Action.Purchase.value:
-                    update_data[content_id]['purchase_similar'] = res_dict
-                else:
-                    log.warning(f"{e} -> {action} not a valided action...")
-                    continue
+                    if action == Action.View.value:
+                        update_data[content_id]['view_similar'] = res_dict
+                    elif action == Action.AddToCart.value:
+                        update_data[content_id]['add_cart_similar'] = res_dict
+                    elif action == Action.Purchase.value:
+                        update_data[content_id]['purchase_similar'] = res_dict
+                    else:
+                        log.warning(f"{e} -> {action} not a valided action...")
+                        continue
 
-                if len(items_group[content_id]) == 0:
-                    q.put(update_data[content_id])
+                    if len(items_group[content_id]) == 0:
+                        q.put(update_data[content_id])
+            except Exception as err:
+                log.error(err)
+                log.warning(f"{item_id} not a valided behaviors...")
 
     log.info(f"[End] Check items group result : {sum([len(items_group[g]) for g in items_group])}")
     log.info(f"[Time|fetch_topK_similar] Cost : {time.time() - b_time}")
@@ -210,13 +218,15 @@ def check_queue_finish():
         time.sleep(60)
 
 
-def main(catalog_table, items_vec_file, topK, backup_file):
+def main(catalog_table, items_vec_file, topK, backup_file, ddb_table):
     b_time = time.time()
     valid_items_set = fetch_category_items(catalog_table)
     ann_model, item_idx_map, item_group = build_ann(items_vec_file, valid_items_set)
+    update_table_WCU(ddb_table, 1000)
     topK_similar_result = fetch_topK_similar(items_vec_file, ann_model, topK, item_idx_map, item_group)
     backup(backup_file, topK_similar_result)
     check_queue_finish()
+    update_table_WCU(ddb_table, 2)
     log.info(f"[Time|main] Cost : {time.time() - b_time}")
 
 
@@ -230,5 +240,4 @@ if __name__ == '__main__':
     parser.add_argument("backup_file", type=str, help="backup file name")
     args = parser.parse_args()
     threading.Thread(target=insert_ddb, args=(args.ddb_table, args.label), daemon=True).start()
-    main(args.catalog_table, args.model, args.topK, args.backup_file)
-
+    main(args.catalog_table, args.model, args.topK, args.backup_file, args.ddb_table)
